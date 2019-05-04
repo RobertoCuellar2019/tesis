@@ -1,0 +1,287 @@
+%%%%%%hologramas y reconstrucciones sin términos DC para N planos de
+%%%%%%enfoque
+
+
+ clear all 
+ close all
+ clc
+ 
+ M=768;%pixeles
+ N=768;%pixeles
+ LX=M*19e-6;%%%longitud en x del modulador
+ LY=N*19e-6;%%%longitud en y del modulador
+
+ dx=19e-6;%%tamaño del pixel igual al intervalo de muestreo
+ dy=dx;
+ x=-LX/2:dx:LX/2-dx; %coordenadas en el dominio espacial dirección x
+ y=-LY/2:dy:LY/2-dy; %coordenadas en el dominio espacial dirección y
+ lambda=514*10^-9; %longitud de onda
+ k=2*pi/lambda; %número de onda
+ w=4*19e-6; %8 pixeles es la mitad de la longitud de los cuadrados de la matriz
+
+ deltaz=0.005;%%%%intervalo de calculo del enfoque de los hologramas
+ planos=3;%%%número de planos de enfoque
+ z_ini=0.8;%%%distancia de enfoque del primer plano
+ z=z_ini:deltaz:(z_ini+(planos-1)*deltaz);%%%distancia a cada uno de los planos
+ 
+[X1,Y1]=meshgrid(x,y);
+u1=zeros(M,N);
+%%%malla de rectangulos
+ZZ=500;%%%número total de pixeles donde situar el patrón de análisis
+uu=zeros(ZZ,ZZ);
+cant=1:401;
+b=mod(ZZ,cant);
+[row,col] = find(~b);%%%se hallan la cantidad de cuadros utilizables
+a=zeros(1,length(col));
+
+for i=1:length(col)
+    a(1,i)=col(1,i);    
+end
+
+%%%el indice menor es 6, para obtener cuadrados de 4x4
+p=6;
+tam_actual=ZZ/a(1,p);
+pixeles_recorte=10;
+tam_cua=tam_actual-2*pixeles_recorte;
+
+ucua=zeros(tam_actual,tam_actual);
+ucua((pixeles_recorte)+1:(tam_cua+pixeles_recorte),(pixeles_recorte)+1:(tam_cua+pixeles_recorte))=1;
+
+for j=1:a(1,p)
+    for l=1:a(1,p)
+uu(1+(j-1)*tam_actual:((j)*tam_actual),1+(l-1)*tam_actual:((l)*tam_actual))=ucua;    
+    end
+end
+
+%tam=ZZ/z_1(7);K=z_1(7)/2; J = checkerboard(tam,K,K);JJ=imbinarize(J,0.5);
+% 
+kk=M-ZZ;
+kk=kk/2;
+posiciones=9;
+u_posiciones=zeros(M,N,posiciones);
+
+u_posiciones(kk:ZZ+kk-1,kk:ZZ+kk-1,1)=uu;%%%centrado
+u_posiciones(kk:ZZ+kk-1,1:ZZ,2)=uu;%%%centrado izquierda
+u_posiciones(1:ZZ,kk:ZZ+kk-1,3)=uu;%%%centrado arriba
+u_posiciones(M-ZZ+1:M,kk:ZZ+kk-1,4)=uu;%%%centrado abajo
+u_posiciones(kk:ZZ+kk-1,M-ZZ+1:M,5)=uu;%%%centrado derecha
+u_posiciones(1:ZZ,1:ZZ,6)=uu;%%%arriba izquierda
+u_posiciones(M-ZZ+1:M,M-ZZ+1:M,7)=uu;%%%abajo derecha
+u_posiciones(M-ZZ+1:M,1:ZZ,8)=uu;%%%abajo izquierda
+u_posiciones(1:ZZ,M-ZZ+1:M,9)=uu;%%%arriba derecha
+
+u_recons=zeros(M,N);%%%matriz donde se guarda la reconstrucción
+for zeta=1:length(z)
+for pos=1:posiciones
+% zeta=1;
+% pos=1;
+
+
+%u1(kk:ZZ+kk-1,kk:ZZ+kk-1)=uu;%%%centrado
+%u1(kk:ZZ+kk-1,1:ZZ)=uu;%%%centrado izquierda
+%u1(1:ZZ,kk:ZZ+kk-1)=uu;%%%centrado arriba
+%u1(M-ZZ+1:M,kk:ZZ+kk-1)=uu;%%%centrado abajo
+%u1(kk:ZZ+kk-1,M-ZZ+1:M)=uu;%%%centrado derecha
+%u1(1:ZZ,1:ZZ)=uu;%%%arriba izquierda
+%u1(M-ZZ+1:M,M-ZZ+1:M)=uu;%%%abajo derecha
+%u1(M-ZZ+1:M,1:ZZ)=uu;%%%abajo izquierda
+%u1(1:ZZ,M-ZZ+1:M)=uu;%%%arriba derecha
+
+
+
+ %%%fin malla de rectangulos
+ 
+ I1=abs(u_posiciones(:,:,pos).^2); %se halla la irradiancia sobre el plano de entrada
+ %figure(1), imagesc(x,y,I1); axis square; colormap('gray'); xlabel('x (m)'); ylabel('y (m)'); title('z= 0 m plano entrada');
+%return
+ 
+ u_sa=zeros(M,N,length(z));%%%matriz que contiene todos los planos para un enfoque z_ini específico
+ 
+    
+ u2=propTFR(I1,lambda,z(zeta),M); %Se halla la propagación usando la función de transferencia para el plano de focalizacion en z_ini
+
+ I2=abs(u2.^2); %irradiancia en el campo de observación de la difracción para los diferentes z
+  
+  
+  %%%visualización de los n planos difractados a diferentes distancias
+%   for j=1:length(z)
+%   figure(j),imagesc(x,y,I2(:,:,j)); axis square; colormap('gray'); xlabel('x (m)'); ylabel('y (m)'); title(['z= ',num2str(z(1)),' m',', Irradiancia de la difracción']);
+%   end
+ %%%%%
+ 
+ %%%%holograma sobre el eje sin términos DC
+ 
+ ur=exp(1i*k*z_ini)*ones(M,N);% Onda de referencia
+ e1=ur.*conj(ur);
+ e2=u2.*conj(u2);
+ e3=ur.*conj(u2);
+ e4=u2.*conj(ur);
+ et=e1+e2+e3+e4;
+ I5=abs(et);
+ I5=I5-abs(e1)-abs(e2);%-abs(e3);
+ I6=max(max(I5));
+ I5=(I5/I6);
+ 
+ %imagesc(x,y,I5); axis square; colormap('gray'); xlabel('x (m)'); ylabel('y (m)');  title('Holograma sin Términos DC y twin imagen');
+ %%%%fin holograma sobre el eje
+ 
+ 
+ 
+ %%%%reconstrucción sobre diferentes planos
+ 
+ 
+ %%%zona reconstruccion  
+ u3=zeros(M,N,length(z));
+ for gg=1:length(z)
+ u3(:,:,gg)=propIR(I5.*ur,lambda,z(gg),M); %Se halla la propagació
+ end%%%reconstrucción para cada z
+ I4=abs((u3).^2); %irradiancia en los campos de observación
+ I4=I4./max(max(I4));
+%figure(20),imagesc(x,y,I4(:,:,1)); axis square; colormap('gray'); xlabel('x (m)'); ylabel('y (m)');  title('Holograma Reconstruido En su plano de Enfoque');
+%   %visualización de los n planos reconstruidos a diferentes distancias
+%   for j=1:length(z)
+%   figure(j),imagesc(x,y,I4(:,:,j)); axis square; colormap('gray'); xlabel('x (m)'); ylabel('y (m)'); title(['z= ',num2str(z(j)),' m',', Reconstrucción ']);
+%   end
+%  %%%
+ 
+% return
+%%%%imagen superficie
+
+ escalera=zeros(M,N);
+ A=0.02;
+ escalera(:,1:256)=A;
+ escalera(:,256:512)=A-deltaz;
+ escalera(:,512:768)=A-2*deltaz;
+ 
+
+ k=(z_ini+A)*ones(M,N); %%%profundidad áxima del objeto
+ zi=k-escalera;%%%%perfiles
+ perfil=zeros(M,N);
+ %z_actual=zi(650,650);
+ %[row,col]=find(z==z_actual);
+ 
+%  
+for x1=1:M
+   for y1=1:N
+       z_actual=zi(x1,y1);
+       [row,col]=find(z==z_actual);
+       if isempty(col)==1
+       else
+       perfil(x1,y1)=I4(x1,y1,col);
+       end
+   end    
+end
+
+
+%figure(11),imagesc(log(perfil+0.1)),colormap gray;title('Holograma sobre la superficie no uniforme');axis square;
+%figure(12),imagesc(perfil),colormap gray;
+BW = imbinarize(perfil,0.095);
+entrada=imbinarize(I1,0.2);
+%figure(13),imagesc(BW),colormap gray;title('reconstrucción binarizada');
+
+[L,Ne]=bwlabel(BW);
+propiedades_salida=regionprops(L,'Area','Centroid','Perimeter','BoundingBox','MajorAxisLength','MinorAxisLength');
+
+
+%%%determino área promedio, perímetro, semiejemayor,semiejemenor promedio de los objetos en el plano incidente
+
+[L1,Ne1]=bwlabel(entrada);
+propiedades_entrada=regionprops(L1,'Area','Centroid','Perimeter','BoundingBox','MajorAxisLength','MinorAxisLength');
+area_entrada=cat(1,propiedades_entrada.Area);
+area_entrada_media=sum(area_entrada(:))/Ne1;
+perimetro_entrada=cat(1,propiedades_entrada.Perimeter);
+perimetro_entrada_media=sum(perimetro_entrada(:))/Ne1;
+
+semieje_mayor=cat(1,propiedades_entrada.MajorAxisLength);
+semieje_mayor_medio=sum(semieje_mayor(:))/Ne1;
+semieje_menor=cat(1,propiedades_entrada.MinorAxisLength);
+semieje_menor_medio=sum(semieje_menor(:))/Ne1;
+
+areas_ruido=find([propiedades_salida.Area]<area_entrada_media-(area_entrada_media/10));
+for n=1:size(areas_ruido,2)
+   d=round(propiedades_salida(areas_ruido(n)).BoundingBox) ;
+   BW(d(2):d(2)+d(4),d(1):d(1)+d(3))=0;    
+end
+%%
+
+area_ia_min=area_entrada_media-(area_entrada_media/(area_entrada_media/1));%%%área mínima
+area_ia_max=area_entrada_media+(area_entrada_media/(area_entrada_media/1));%%%área máxima
+peri_i_min=perimetro_entrada_media-(perimetro_entrada_media/(perimetro_entrada_media/1));%%%%perimetro minimo
+peri_i_max=perimetro_entrada_media+(perimetro_entrada_media/(perimetro_entrada_media/1));%%%%perimetro max
+sem_may_max=semieje_mayor_medio+(semieje_mayor_medio*0.04);%%%semieje mayor máximo
+sem_may_min=semieje_mayor_medio-(semieje_mayor_medio*0.04);%%% semieje mayor mínimo
+sem_min_max=semieje_menor_medio+(semieje_menor_medio*0.04);%%%semieje menor máximo
+sem_min_min=semieje_menor_medio-(semieje_menor_medio*0.04);%%%semieje menor mínimo
+
+%figure(14),imagesc(BW),colormap gray;title('reconstrucción binarizada Sin ruido');
+
+%%%selección de cuadros usables
+areas_interes=find([propiedades_salida.MinorAxisLength]<sem_min_max&[propiedades_salida.MinorAxisLength]>sem_min_min&[propiedades_salida.MajorAxisLength]>sem_may_min&[propiedades_salida.MajorAxisLength]<sem_may_max&[propiedades_salida.Area]<area_ia_max&[propiedades_salida.Area]>area_ia_min&[propiedades_salida.Perimeter]>peri_i_min&[propiedades_salida.Perimeter]<peri_i_max);
+
+%%%determino si existen puntos de reconstrucción o nó
+if isempty(areas_interes)==1
+   
+else
+
+%g=propiedades_salida(areas_interes).Centroid;
+centroides_salida = round(cat(1, propiedades_salida(areas_interes).Centroid));
+%%%visualizacion de bounding box en los centroides
+% hold on 
+% plot(centroides_salida(:,1),centroides_salida(:,2), 'b*');axis square;
+% for nn=1:size(areas_interes,2)
+% rectangle('Position',propiedades_salida(areas_interes(nn)).BoundingBox,'EdgeColor','b') ;
+% end
+% hold off
+%pause
+for xx=1:length(centroides_salida(:,1))
+  
+  
+      xcord=centroides_salida(xx,1);
+      ycord=centroides_salida(xx,2);
+      u_recons(ycord,xcord)=z(zeta);
+     
+
+end
+
+% entrada=imbinarize(I1,0.2);
+% figure(15),imagesc(entrada),colormap gray;title('Objetos entrada');
+% propiedades_entrada = regionprops('table',BW,'Centroid','perimeter','Area');
+% centroides_entrada = cat(1, propiedades_entrada.Centroid);
+% hold on 
+% plot(centroides_entrada(:,1),centroides_entrada(:,2), 'b*')
+% hold off
+
+
+% centroides_salida = cat(1, propiedades_salida.Centroid);
+% hold on 
+% plot(centroides_salida(:,1),centroides_salida(:,2), 'b*')
+% hold off
+end
+
+%  figure(20),stem3(u_recons);
+%  view(180,0);
+%  zlim([min(z) max(z)]);
+
+display(['plano= ',num2str(pos)]);
+% 
+end
+display(['z= ',num2str(z(zeta))]);
+    
+end
+figure(20),stem3(X1,Y1,u_recons);
+title('Perfil Escalonado Según  Planos de Enfoque'); xlabel('x (m)'); ylabel('y (m)'); zlabel('z (m)');
+%view(180,0);
+zlim([min(z) max(z)]);
+axis square
+
+
+figure(21),stem3(x,y,escalera);
+title('Vista Transversal Perfil Escalonado a Reconstruir'); xlabel('x (m)'); ylabel('y (m)'); zlabel('z (m)');
+xlim([min(x) max(x)]);
+ylim([min(x) max(x)]);
+view(360,0);
+axis square
+zlim([min(min(escalera)) max(max(escalera))]);
+
+ %figure(16),imagesc(u_recons);title('Reconstrucción');axis square;
+% figure(17),imagesc(escalera);axis square;
